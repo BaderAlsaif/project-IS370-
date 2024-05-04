@@ -1,7 +1,6 @@
 import socket
 import json
 
-
 def main():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect(('localhost', 9999))
@@ -56,8 +55,7 @@ def main():
             menu_items = json.loads(client_socket.recv(1024).decode())
             for item in menu_items:
                 print(f"{item['name']}: ${item['price']}")
-
-            order = {}  # Initialize order dictionary
+            order = {}
             total_price = 0  # Initialize total price
             while True:
                 item_name = input("Enter the item name you want to order (or 'done' to finish): ")
@@ -68,8 +66,8 @@ def main():
                     client_socket.send(order_data.encode())
                     confirmation = client_socket.recv(1024).decode()
                     print(confirmation)
-                    address_choice = input(
-                        "Do you want to confirm your order? Enter 'confirm' to confirm or 'cancel' to cancel: ")
+                    confirmation = "Total Price: $X"  # Replace X with the actual total price received from the server
+                    address_choice = input("Do you want to confirm your order? Enter 'confirm' to confirm or 'cancel' to cancel: ")
                     client_socket.send(address_choice.encode())
                     if address_choice.lower() == 'confirm':
                         delivery_address = input("Enter your delivery address (3 letters only): ")
@@ -80,11 +78,13 @@ def main():
                             continue
                     break
                 else:
-                    quantity = int(input("Enter the quantity: "))  # Ask for quantity
-                    order_data = f"{item_name}:{quantity}"
-                    client_socket.send(order_data.encode())  # Send order and quantity to server
-                    total_price += float(client_socket.recv(1024).decode())  # Receive total price from server
-
+                    item_quantity = input("Enter the quantity: ")
+                    order[item_name] = int(item_quantity)
+                    # Update total price as items are added
+                    for item in menu_items:
+                        if item['name'] == item_name:
+                            total_price += int(item_quantity) * float(item['price'])
+                            break
         else:
             print(login_response)
 
@@ -92,7 +92,6 @@ def main():
     print(response)
 
     client_socket.close()
-
 
 if __name__ == "__main__":
     main()
