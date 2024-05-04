@@ -1,0 +1,98 @@
+import socket
+import json
+
+
+def main():
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(('localhost', 9999))
+
+    print("Connected to server.")
+
+    choice = input("Choose 'signup' or 'login': ").lower()
+    while choice not in ['signup', 'login']:
+        print("Invalid choice. Please choose 'signup' or 'login'.")
+        choice = input("Choose 'signup' or 'login': ").lower()
+
+    client_socket.send(choice.encode())
+
+    if choice == 'signup':
+        username = input("Enter username: ")
+        password = input("Enter password: ")
+        role = input("Are you an owner or a customer? Enter 'owner' or 'customer': ")
+        signup_data = f"{username}:{password}:{role}"
+        client_socket.send(signup_data.encode())
+    elif choice == 'login':
+        username = input("Enter username: ")
+        password = input("Enter password: ")
+        login_data = f"{username}:{password}"
+        client_socket.send(login_data.encode())
+        login_response = client_socket.recv(1024).decode()
+        login_parts = login_response.split("|")
+        if len(login_parts) == 2 and login_parts[0] == 'Login successful':
+            role_flag = login_parts[1]
+            print(f"Logged in as {role_flag}")
+            if role_flag == 'owner':
+                action = input("Choose 'add_menu_item' or 'modify_menu_item': ").lower()
+                while action not in ['add_menu_item', 'modify_menu_item']:
+                    print("Invalid choice. Please choose 'add_menu_item' or 'modify_menu_item'.")
+                    action = input("Choose 'add_menu_item' or 'modify_menu_item': ").lower()
+                client_socket.send(action.encode())
+                if action == 'add_menu_item':
+                    item_name = input("Enter the item name: ")
+                    item_price = input("Enter the item price: ")
+                    item_data = f"{item_name}:{item_price}"
+                    client_socket.send(item_data.encode())
+                    menu_update_response = client_socket.recv(1024).decode()
+                    print(menu_update_response)
+                elif action == 'modify_menu_item':
+                    item_name = input("Enter the item name to modify: ")
+                    item_price = input("Enter the new item price: ")
+                    item_data = f"{item_name}:{item_price}"
+                    client_socket.send(item_data.encode())
+                    menu_update_response = client_socket.recv(1024).decode()
+                    print(menu_update_response)
+        if role_flag == 'customer':
+            print("Menu:")
+            menu_items = json.loads(client_socket.recv(1024).decode())
+            for item in menu_items:
+                print(f"{item['name']}: ${item['price']}")
+
+            order = {}  # Initialize order dictionary
+            total_price = 0  # Initialize total price
+            while True:
+                item_name = input("Enter the item name you want to order (or 'done' to finish): ")
+
+                if item_name.lower() == 'done':
+                    print(f"Total Price: ${total_price}")  # Display total price before confirmation
+                    order_data = json.dumps(order)
+                    client_socket.send(order_data.encode())
+                    confirmation = client_socket.recv(1024).decode()
+                    print(confirmation)
+                    address_choice = input(
+                        "Do you want to confirm your order? Enter 'confirm' to confirm or 'cancel' to cancel: ")
+                    client_socket.send(address_choice.encode())
+                    if address_choice.lower() == 'confirm':
+                        delivery_address = input("Enter your delivery address (3 letters only): ")
+                        if len(delivery_address) == 3:
+                            client_socket.send(delivery_address.encode())
+                        else:
+                            print("Delivery address must be exactly 3 letters.")
+                            continue
+                    break
+                else:
+                    quantity = int(input("Enter the quantity: "))  # Ask for quantity
+                    order_data = f"{item_name}:{quantity}"
+                    client_socket.send(order_data.encode())  # Send order and quantity to server
+                    total_price += float(client_socket.recv(1024).decode())  # Receive total price from server
+
+        else:
+            print(login_response)
+
+    response = client_socket.recv(1024).decode()
+    print(response)
+
+    client_socket.close()
+
+
+if __name__ == "__main__":
+    main()
