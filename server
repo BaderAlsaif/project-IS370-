@@ -5,7 +5,6 @@ import os
 MENU_FILE = "menu.json"
 USERS_FILE = "users.json"  # File to store user credentials
 
-
 def load_menu():
     if os.path.isfile(MENU_FILE):
         with open(MENU_FILE, "r") as file:
@@ -13,11 +12,9 @@ def load_menu():
     else:
         return []
 
-
 def save_menu(menu):
     with open(MENU_FILE, "w") as file:
         json.dump(menu, file)
-
 
 def load_users():
     if os.path.isfile(USERS_FILE):
@@ -26,17 +23,14 @@ def load_users():
     else:
         return {}
 
-
 def save_users(users):
     with open(USERS_FILE, "w") as file:
         json.dump(users, file)
-
 
 def create_menu_file():
     if not os.path.isfile(MENU_FILE):
         with open(MENU_FILE, 'w') as file:
             json.dump([], file)  # Create an empty menu file
-
 
 def handle_client(client_socket, menu, users):
     # Receive choice between signup and login
@@ -69,7 +63,6 @@ def handle_client(client_socket, menu, users):
         else:
             client_socket.send("Invalid credentials".encode())
 
-
 def handle_user_actions(client_socket, menu, role_flag):
     action = client_socket.recv(1024).decode()
     if action == 'add_menu_item':
@@ -91,11 +84,25 @@ def handle_user_actions(client_socket, menu, role_flag):
         else:
             client_socket.send("Item not found".encode())
 
-
 def send_menu(client_socket, menu):
     menu_data = json.dumps(menu)
     client_socket.send(menu_data.encode())
 
+def handle_order(client_socket, menu):
+    order_data = client_socket.recv(1024).decode()
+    order = json.loads(order_data)
+    total_price = calculate_total_price(order, menu)
+    client_socket.send(f"Total Price: ${total_price}".encode())
+    address_choice = client_socket.recv(1024).decode()
+    if address_choice.lower() == 'confirm':
+        delivery_address = client_socket.recv(1024).decode()
+        if len(delivery_address) == 3:
+            client_socket.send("Order confirmed. Confirmation message sent.".encode())
+            # Send confirmation message (in a real application, this could be an email or SMS)
+        else:
+            client_socket.send("Invalid delivery address. Order cancelled.".encode())
+    else:
+        client_socket.send("Order cancelled.".encode())
 
 def calculate_total_price(order, menu):
     total_price = 0
@@ -105,17 +112,6 @@ def calculate_total_price(order, menu):
                 total_price += quantity * item['price']
                 break
     return total_price
-
-
-def handle_order(client_socket, menu):
-    order_data = client_socket.recv(1024).decode()
-    order_parts = order_data.split(":")
-    item_name = order_parts[0]
-    quantity = int(order_parts[1])
-
-    total_price = calculate_total_price({item_name: quantity}, menu)
-    client_socket.send(str(total_price).encode())  # Send total price to client
-
 
 def main():
     create_menu_file()
@@ -136,7 +132,6 @@ def main():
         handle_client(client_socket, menu, users)
 
         client_socket.close()
-
 
 if __name__ == "__main__":
     main()
