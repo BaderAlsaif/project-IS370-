@@ -1,9 +1,10 @@
 import socket
 import json
-import os.path
+import os
 
 MENU_FILE = "menu.json"
 USERS_FILE = "users.json"  # File to store user credentials
+
 
 def load_menu():
     if os.path.isfile(MENU_FILE):
@@ -12,9 +13,11 @@ def load_menu():
     else:
         return []
 
+
 def save_menu(menu):
     with open(MENU_FILE, "w") as file:
         json.dump(menu, file)
+
 
 def load_users():
     if os.path.isfile(USERS_FILE):
@@ -23,9 +26,17 @@ def load_users():
     else:
         return {}
 
+
 def save_users(users):
     with open(USERS_FILE, "w") as file:
         json.dump(users, file)
+
+
+def create_menu_file():
+    if not os.path.isfile(MENU_FILE):
+        with open(MENU_FILE, 'w') as file:
+            json.dump([], file)  # Create an empty menu file
+
 
 def handle_client(client_socket, menu, users):
     # Receive choice between signup and login
@@ -50,24 +61,65 @@ def handle_client(client_socket, menu, users):
             role_flag = users[username]["role"]
             client_socket.send(f"Login successful|{role_flag}".encode())
             # Continue processing based on user role and actions
-            handle_user_actions(client_socket, menu, role_flag)
+            if role_flag == 'customer':
+                send_menu(client_socket, menu)
+                handle_order(client_socket, menu)
+            elif role_flag == 'owner':
+                handle_user_actions(client_socket, menu, role_flag)
         else:
             client_socket.send("Invalid credentials".encode())
 
+
 def handle_user_actions(client_socket, menu, role_flag):
-    if role_flag == 'owner':
-        action = client_socket.recv(1024).decode()
-        if action == 'add_menu_item' or action == 'modify_menu_item':
-            item_name = client_socket.recv(1024).decode()
-            item_price = client_socket.recv(1024).decode()
-            menu.dump({"name": item_name, "price": item_price})
+    action = client_socket.recv(1024).decode()
+    if action == 'add_menu_item':
+        item_name, item_price = client_socket.recv(1024).decode().split(":")
+        if not any(item["name"] == item_name for item in menu):
+            menu.append({"name": item_name, "price": item_price})
             save_menu(menu)  # Save the updated menu
             client_socket.send("Menu updated successfully".encode())
-    # else:
-    #     # Handle customer actions if needed
-    #     pass
+        else:
+            client_socket.send("Item with the same name already exists".encode())
+    elif action == 'modify_menu_item':
+        item_name, item_price = client_socket.recv(1024).decode().split(":")
+        for item in menu:
+            if item["name"] == item_name:
+                item["price"] = item_price
+                save_menu(menu)  # Save the updated menu
+                client_socket.send("Menu updated successfully".encode())
+                break
+        else:
+            client_socket.send("Item not found".encode())
+
+
+def send_menu(client_socket, menu):
+    menu_data = json.dumps(menu)
+    client_socket.send(menu_data.encode())
+
+
+def calculate_total_price(order, menu):
+    total_price = 0
+    for item_name, quantity in order.items():
+        for item in menu:
+            if item['name'] == item_name:
+                total_price += quantity * item['price']
+                break
+    return total_price
+
+
+def handle_order(client_socket, menu):
+    order_data = client_socket.recv(1024).decode()
+    order_parts = order_data.split(":")
+    item_name = order_parts[0]
+    quantity = int(order_parts[1])
+
+    total_price = calculate_total_price({item_name: quantity}, menu)
+    client_socket.send(str(total_price).encode())  # Send total price to client
+
 
 def main():
+    create_menu_file()
+
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind(('localhost', 9999))
     server_socket.listen(5)
@@ -84,6 +136,7 @@ def main():
         handle_client(client_socket, menu, users)
 
         client_socket.close()
+
 
 if __name__ == "__main__":
     main()
