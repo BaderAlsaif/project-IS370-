@@ -8,14 +8,14 @@ def main():
 
         print("Connected to server.")
 
-        choice = input("Choose 'signup' or 'login': ").lower()
-        while choice not in ['signup', 'login']:
+        choice = input("Choose 'sign up' or 'login': ").lower()
+        while choice not in ['sign up', 'login']:
             print("Invalid choice. Please choose 'signup' or 'login'.")
             choice = input("Choose 'signup' or 'login': ").lower()
 
         client_socket.send(choice.encode())
 
-        if choice == 'signup':
+        if choice == 'sign up':
             username = input("Enter username: ")
             password = input("Enter password: ")
             role = input("Are you an owner or a customer? Enter 'owner' or 'customer': ")
@@ -32,19 +32,19 @@ def main():
                 role_flag = login_parts[1]
                 print(f"Logged in as {role_flag}")
                 if role_flag == 'owner':
-                    action = input("Choose 'add_menu_item' or 'modify_menu_item': ").lower()
-                    while action not in ['add_menu_item', 'modify_menu_item']:
-                        print("Invalid choice. Please choose 'add_menu_item' or 'modify_menu_item'.")
-                        action = input("Choose 'add_menu_item' or 'modify_menu_item': ").lower()
+                    action = input("Choose 'add item' or 'modify item': ").lower()
+                    while action not in ['add item', 'modify item']:
+                        print("Invalid choice. Please choose 'add item' or 'modify item'.")
+                        action = input("Choose 'add item' or 'modify item': ").lower()
                     client_socket.send(action.encode())
-                    if action == 'add_menu_item':
+                    if action == 'add item':
                         item_name = input("Enter the item name: ")
                         item_price = input("Enter the item price: ")
                         item_data = f"{item_name}:{item_price}"
                         client_socket.send(item_data.encode())
                         menu_update_response = client_socket.recv(1024).decode()
                         print(menu_update_response)
-                    elif action == 'modify_menu_item':
+                    elif action == 'modify item':
                         item_name = input("Enter the item name to modify: ")
                         item_price = input("Enter the new item price: ")
                         item_data = f"{item_name}:{item_price}"
@@ -70,12 +70,9 @@ def main():
                         address_choice = input("Do you want to confirm your order? Enter 'confirm' to confirm or 'cancel' to cancel: ")
                         client_socket.send(address_choice.encode())
                         if address_choice.lower() == 'confirm':
-                            delivery_address = input("Enter your delivery address (3 letters only): ")
-                            if len(delivery_address) == 3:
-                                client_socket.send(delivery_address.encode())
-                            else:
-                                print("Delivery address must be exactly 3 letters.")
-                                continue
+                            delivery_address = input("Enter your delivery address:")
+
+                            client_socket.send(delivery_address.encode())
                         break
                     else:
                         item_quantity = input("Enter the quantity: ")
