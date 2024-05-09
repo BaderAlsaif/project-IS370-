@@ -1,0 +1,141 @@
+import socket
+import json
+import os
+try:
+    menu_object = "menu.json" #store data in menu.json
+    user_object = "users.json"  #store data in users.json
+
+    def load_menu(): #read from file
+        if os.path.isfile(menu_object):
+            with open(menu_object, "r") as file:
+                return json.load(file)
+        else:
+            return []
+
+    def save_menu(menu): #save in file with write not append
+        with open(menu_object, "w") as file:
+            json.dump(menu, file)
+
+    def load_users(): #same menu
+        if os.path.isfile(user_object):
+            with open(user_object, "r") as file:
+                return json.load(file)
+        else:
+            return {}
+
+    def save_users(users): #same menu
+        with open(user_object, "w") as file:
+            json.dump(users, file)
+
+    def create_file(): #create file because we got problem in menu file , thats why we use it
+        if not os.path.isfile(menu_object):
+            with open(menu_object, 'w') as file:
+                json.dump([], file)  # Create an empty menu file
+
+    def handle_client(client_socket, menu, users):
+        choice = client_socket.recv(1024).decode() #gives notifaction if signup or login
+        if choice == 'sign up':
+            username, password, role = client_socket.recv(1024).decode().split(":") #signup details like username , password
+            if username in users:
+                client_socket.send("Username already exists".encode())
+                return
+            users[username] = {"password": password, "role": role} # Save in users.json
+            save_users(users)
+            client_socket.send("Signup successful".encode())
+        elif choice == 'login': #login details like username , password
+            username, password = client_socket.recv(1024).decode().split(":")
+            if username in users and users[username]["password"] == password: #check if username exists or not
+                role_flag = users[username]["role"]
+                client_socket.send(f"Login successful[{role_flag}]".encode())
+                if role_flag == 'customer': #continue procceing
+                    send_menu(client_socket, menu)
+                    handle_order(client_socket, menu)
+                elif role_flag == 'owner':
+                    handle_user_actions(client_socket, menu, role_flag)
+            else:
+                client_socket.send("incorrect data ".encode())
+
+    def handle_user_actions(client_socket, menu, role_flag):
+        action = client_socket.recv(1024).decode()
+        if action == 'add item':
+            item_name, item_price = client_socket.recv(1024).decode().split(":")
+            if not any(item["name"] == item_name for item in menu):
+                menu.append({"name": item_name, "price": item_price})
+                save_menu(menu)  # Save the updated menu
+                client_socket.send("Menu is updated successfully".encode())
+            else:
+                client_socket.send("Item with the same name already exists".encode())
+        elif action == 'modify item':
+            item_name, item_price = client_socket.recv(1024).decode().split(":")
+            for item in menu:
+                if item["name"] == item_name:
+                    item["price"] = item_price
+                    save_menu(menu)  # Save the updated menu
+                    client_socket.send("Menu is updated successfully".encode())
+                    break
+            else:
+                client_socket.send("Item not found".encode())
+
+
+    def send_menu(client_socket, menu):
+        menu_data = json.dumps(menu)
+        client_socket.send(menu_data.encode())
+
+
+
+    def handle_order(client_socket, menu):
+        order_data = client_socket.recv(1024).decode()
+        order = json.loads(order_data)
+        total_price = calculate_total_price(order, menu)
+        if total_price == 0:
+            client_socket.send("Order is empty or you choose item not in menu".encode())
+        else:
+            client_socket.send(f"Total Price: ${total_price}".encode())
+            address_choice = client_socket.recv(1024).decode()
+            if address_choice.lower() == 'confirm':
+                delivery_address = client_socket.recv(1024).decode()
+                client_socket.send("Order confirmed".encode())
+                # Send confirmation message (in a real application, this could be an email or SMS)
+            if address_choice.lower() == 'cancel':
+                client_socket.send("Cancel order".encode())
+
+    def calculate_total_price(order, menu):
+        total_price = 0
+        for item_name, quantity in order.items():
+            for item in menu:
+                if item['name'] == item_name:
+                    total_price += quantity * float(item['price'])  # Convert item price to float
+                    break
+        return total_price
+
+    def main():
+        create_file()
+
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind(('localhost', 9999))
+        server_socket.listen(5)
+
+        print("Server started. Listening for connections...")
+
+        menu = load_menu()
+        users = load_users()
+
+        while True:
+            client_socket, addr = server_socket.accept()
+            print(f"Connection from {addr} established.")
+
+            handle_client(client_socket, menu, users)
+
+            client_socket.close()
+
+except ConnectionRefusedError:
+    print("make sure the server is running to connect")
+
+except socket.error as e:
+    print(f"Socket error: {e}")
+except Exception as e:
+    print("An error occurred")
+
+
+if __name__ == "__main__":
+    main()
