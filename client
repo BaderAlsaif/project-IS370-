@@ -85,14 +85,11 @@ def main():
         print(response)
 
     except ConnectionRefusedError:
-        print("Connection refused. Please check if the server is running.")
-
-    except json.JSONDecodeError:
-        print("Error decoding JSON data from the server.")
+        print("make sure the server is running to connect")
     except socket.error as e:
         print(f"Socket error: {e}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print("An error occurred")
 
     finally:
         client_socket.close()
