@@ -23,6 +23,10 @@ try:
         else:
             return {}
 
+    def send_menu(client_socket, menu):
+        menu_data = json.dumps(menu)
+        client_socket.send(menu_data.encode())
+
     def save_users(users): #same menu
         with open(user_object, "w") as file:
             json.dump(users, file)
@@ -34,7 +38,8 @@ try:
 
     def handle_client(client_socket, menu, users):
         choice = client_socket.recv(1024).decode() #gives notifaction if signup or login
-        if choice == 'sign up':
+
+        if choice == 'signup':
             username, password, role = client_socket.recv(1024).decode().split(":") #signup details like username , password
             if username in users:
                 client_socket.send("Username already exists".encode())
@@ -46,14 +51,14 @@ try:
             username, password = client_socket.recv(1024).decode().split(":")
             if username in users and users[username]["password"] == password: #check if username exists or not
                 role_flag = users[username]["role"]
-                client_socket.send(f"Login successful[{role_flag}]".encode())
+                client_socket.send(f"Login successful|{role_flag}".encode())
                 if role_flag == 'customer': #continue procceing
                     send_menu(client_socket, menu)
                     handle_order(client_socket, menu)
                 elif role_flag == 'owner':
                     handle_user_actions(client_socket, menu, role_flag)
             else:
-                client_socket.send("incorrect data ".encode())
+                client_socket.send("Invalid credentials".encode())
 
     def handle_user_actions(client_socket, menu, role_flag):
         action = client_socket.recv(1024).decode()
@@ -76,28 +81,25 @@ try:
             else:
                 client_socket.send("Item not found".encode())
 
-
-    def send_menu(client_socket, menu):
-        menu_data = json.dumps(menu)
-        client_socket.send(menu_data.encode())
-
-
-
     def handle_order(client_socket, menu):
         order_data = client_socket.recv(1024).decode()
         order = json.loads(order_data)
         total_price = calculate_total_price(order, menu)
-        if total_price == 0:
-            client_socket.send("Order is empty or you choose item not in menu".encode())
-        else:
-            client_socket.send(f"Total Price: ${total_price}".encode())
-            address_choice = client_socket.recv(1024).decode()
-            if address_choice.lower() == 'confirm':
-                delivery_address = client_socket.recv(1024).decode()
-                client_socket.send("Order confirmed".encode())
-                # Send confirmation message (in a real application, this could be an email or SMS)
-            if address_choice.lower() == 'cancel':
-                client_socket.send("Cancel order".encode())
+        client_socket.send(f"Total Price: ${total_price}".encode())
+        address_choice = client_socket.recv(1024).decode()
+        if address_choice.lower() == 'confirm':
+            delivery_address = client_socket.recv(1024).decode()
+            client_socket.send("Order confirmed. Confirmation message sent.".encode())
+            # Send confirmation message (in a real application, this could be an email or SMS)
+
+
+    def find_invalid_items(order, menu):
+        invalid_items = []
+        for item_name in order:
+            if not any(item["name"] == item_name for item in menu):
+                invalid_items.append(item_name)
+        return invalid_items
+
 
     def calculate_total_price(order, menu):
         total_price = 0
@@ -110,6 +112,7 @@ try:
 
     def main():
         create_file()
+
 
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(('localhost', 9999))
@@ -129,13 +132,16 @@ try:
             client_socket.close()
 
 except ConnectionRefusedError:
-    print("make sure the server is running to connect")
+    print("Connection refused. Please check if the server is running.")
 
+except json.JSONDecodeError:
+    print("Error decoding JSON data from the server.")
 except socket.error as e:
     print(f"Socket error: {e}")
 except Exception as e:
-    print("An error occurred")
+    print(f"An error occurred: {e}")
 
 
 if __name__ == "__main__":
     main()
+
