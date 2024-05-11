@@ -39,14 +39,14 @@ try:
     def handle_client(client_socket, menu, users):
         choice = client_socket.recv(1024).decode() #gives notifaction if signup or login
 
-        if choice == 'signup':
+        if choice == 'sign up':
             username, password, role = client_socket.recv(1024).decode().split(":") #signup details like username , password
             if username in users:
                 client_socket.send("Username already exists".encode())
                 return
             users[username] = {"password": password, "role": role} # Save in users.json
             save_users(users)
-            client_socket.send("Signup successful".encode())
+            client_socket.send("Sign up successful".encode())
         elif choice == 'login': #login details like username , password
             username, password = client_socket.recv(1024).decode().split(":")
             if username in users and users[username]["password"] == password: #check if username exists or not
