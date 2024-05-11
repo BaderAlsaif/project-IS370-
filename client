@@ -7,11 +7,11 @@ def main():
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect(('localhost', 9999))
 
-        print("you are now connected to server.")
+        print("You are now connected to the server.")
 
         choice = input("Choose 'sign up' or 'login': ").lower()
         while choice not in ['sign up', 'login']:
-            print("wrong choice!  choose 'signup' or 'login'")
+            print("Wrong choice! Choose 'sign up' or 'login'.")
             choice = input("Choose 'signup' or 'login': ").lower()
 
         # Send the choice to the server
@@ -92,13 +92,15 @@ def main():
         response = client_socket.recv(1024).decode()
         print(response)
 
-    # Handle exceptions
+    # Handle specific exceptions related to socket errors
     except ConnectionRefusedError:
-        print("make sure the server is running to connect")
+        print("Connection refused. Please check if the server is running.")
+    except socket.timeout:
+        print("Connection timed out. Please check your network connection.")
     except socket.error as e:
         print(f"Socket error: {e}")
     except Exception as e:
-        print("An error occurred")
+        print(f"An error occurred: {e}")
     # Close the client socket
     finally:
         client_socket.close()
